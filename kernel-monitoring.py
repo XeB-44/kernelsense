@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime, timezone
 import socket
 
-
+LOG_FILE=os.path.expanduser("~/kernel-monitor.log")
 
 while True:
     try:
@@ -27,7 +27,7 @@ while True:
             hostname = socket.gethostname()
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-            with open("/var/log/kernel-monitor.log", "a") as f:
+            with open(LOG_FILE, "a") as f:
                 f.write(f"{timestamp} - Kernel errors detected on {hostname}:\n")
                 f.write(recent_errors + "\n")
                 f.write("---\n")
