@@ -1,4 +1,4 @@
-import sys
+#!/usr/bin/env python3
 import time
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
@@ -15,8 +15,6 @@ path2 = "/etc/systemd/"
 path3 = "/var/log/journal/"
 
 event_handler = LoggingEventHandler()
-
-
 observer = Observer()
 observer.schedule(event_handler, path1, recursive=True)
 observer.schedule(event_handler, path2, recursive=True)
@@ -28,6 +26,4 @@ try:
         time.sleep(1)
 except KeyboardInterrupt:
     observer.stop()
-
 observer.join()
-
