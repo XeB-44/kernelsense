@@ -1,19 +1,19 @@
+#!/usr/bin/env python3
 import os
 import time
 import sys
-import readline
 import subprocess
 from datetime import datetime, timezone
 import socket
 
-LOG_FILE=os.path.expanduser("~/kernel-monitor.log")
+LOG_FILE = os.path.expanduser("~/kernel-monitor.log")
 
 while True:
     try:
         result = subprocess.run(
             [
                 "journalctl", "-k",
-                "--since", f"5 minutes ago",
+                "--since", "5 minutes ago",
                 "--priority=0..3",
                 "--no-pager",
             ],
@@ -31,10 +31,9 @@ while True:
                 f.write(f"{timestamp} - Kernel errors detected on {hostname}:\n")
                 f.write(recent_errors + "\n")
                 f.write("---\n")
- 
+
     except Exception as exc:
         print(f"check failed: {exc}", file=sys.stderr, flush=True)
- 
+
     time.sleep(300)
- 
 
