@@ -1,80 +1,84 @@
-# KernelSense — Local Linux Host Security Dashboard
+# KernelSense — Professional Local Security Dashboard
 
-KernelSense is a local host-monitoring prototype. This bundle adds a Streamlit dashboard and a structured JSON Lines (`security_events.jsonl`) event stream to the existing process, directory, kernel-journal, and privilege/configuration monitors.
+A beginner-friendly, dark multicolor Linux host-monitoring dashboard. It uses Python's built-in HTTP server and a custom HTML/CSS/JavaScript interface—**no Streamlit, no React build step, and no frontend package installation**.
 
-## Dashboard features
+## What's included
 
-- Host CPU, memory, and disk overview.
-- Monitor heartbeat status and source-path diagnostics.
-- Searchable alerts with severity/source filters, local acknowledgement, and recommendations.
-- Latest process snapshot with search/sorting. Command-line arguments are hidden by default because they may contain sensitive values.
-- Searchable log view and CSV/JSONL exports.
-- Local-only UI; no cloud service or external telemetry is configured.
-- Suggested remediation is guidance only. The dashboard does not execute commands or automatically alter system settings.
+- The structured local event logger and monitors for process snapshots, selected system-directory changes, kernel journal messages, and privilege/configuration activity.
+- Kernel module load/unload monitoring and a hardening-check recommender.
+- Live browser updates using Server-Sent Events; responsive dark UI, colourful severity badges, resource rings, recent-alert timeline, monitor status, and hardening recommendations.
+- Plain-language deterministic explanations for known event patterns.
+- Optional on-demand OpenRouter analysis: enter your key in the page, then click **Explain with AI** on a specific alert. The key is not saved to disk by KernelSense. Only the selected alert is sent when requested; the app does not send all logs automatically.
+- AI output is advice only. KernelSense does not execute commands or apply changes.
 
-## Install
+## Install on Linux Mint / Ubuntu
 
-Use a virtual environment from the project directory:
+From the extracted project directory:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv myenv
+source myenv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Run monitors and dashboard
+If you already have a virtual environment named `myenv`, use it rather than creating another one.
 
-Start monitors in one terminal:
-
-```bash
-source .venv/bin/activate
-python3 main.py
-```
-
-The directory and audit monitors may need access to protected system paths. Start without elevated privileges first and inspect `security_events.jsonl`. Only use `sudo` if required for the particular monitor and you understand the implications; the monitoring scripts do not need the dashboard to run as root.
-
-Start the dashboard in another terminal, as your normal user:
+## Run
 
 ```bash
-source .venv/bin/activate
-streamlit run dashboard.py
+source myenv/bin/activate
+python3 dashboard.py
 ```
 
-Open the local URL printed by Streamlit (normally `http://localhost:8501`). Keep the dashboard bound to localhost unless you intentionally configure and secure remote access.
+Open **http://127.0.0.1:8501**. The dashboard starts the included monitor scripts and serves the interface locally. Stop everything with `Ctrl+C`.
 
-## Data files
+Preview the UI with clearly labelled synthetic data (does not represent actual host events):
 
-By default, log files are stored alongside the scripts:
+```bash
+python3 dashboard.py --demo
+```
 
-- `process_log.jsonl` — append-only process snapshots.
-- `security_events.jsonl` — structured monitor events and heartbeats.
-- `kernel-monitor.log` — optional legacy text log from an earlier build.
-- `~/.local/share/kernelsense/dashboard_state.json` — locally acknowledged alert IDs.
+Show the dashboard without launching monitor scripts:
 
-Paths can be overridden with environment variables:
+```bash
+python3 dashboard.py --no-monitors
+```
 
-- `KERNELSENSE_DATA_DIR`
-- `KERNELSENSE_EVENT_LOG`
-- `KERNELSENSE_PROCESS_LOG`
-- `KERNELSENSE_AUDIT_LOG`
-- `KERNELSENSE_PROCESS_POLL_SECONDS`
-- `KERNELSENSE_KERNEL_POLL_SECONDS`
-- `KERNELSENSE_PRIVILEGE_POLL_SECONDS`
+For headless monitoring without the browser dashboard, run `python3 main.py`. Do not run `main.py` alongside `dashboard.py`, because both launch monitor workers.
 
-The dashboard sidebar also allows the log-file paths to be changed at runtime.
+If port 8501 is already in use, choose another port:
 
-## Important limitations
+```bash
+python3 dashboard.py --port 8510
+```
 
-- This is a prototype, not a certified intrusion-detection product. Lack of alerts does not mean the host is clean.
-- Filesystem monitoring covers the configured locations only. Kernel log access depends on local journal permissions.
-- Events can be benign or false positives; verify the full context before responding.
-- Logs can contain usernames, file paths, process metadata, and audit text. Keep them private and do not upload them publicly.
-- Do not expose the Streamlit server to the network without authentication and suitable access controls.
+## Optional OpenRouter analysis
 
-## Troubleshooting
+1. Create an API key through your OpenRouter account.
+2. In the dashboard's **AI explanation** panel, enter the key and a model ID available to your account.
+3. Expand an alert and click **Explain with AI**.
+4. Review the plain-language summary and verify any suggested commands before running them.
 
-- If process data is missing, check the process-log path shown in **Monitor health**.
-- If kernel events are missing, check `journalctl -k --no-pager -n 20` manually and review the dashboard's **Monitor health** tab.
-- If auto-refresh is unavailable, install all packages in `requirements.txt`; the dashboard still works with manual reruns.
-- Each monitor reports its own status to `security_events.jsonl`; check that file's latest lines when diagnosing a worker.
+The dashboard forwards only the selected alert's title, severity, source, existing explanation, recommendation, and technical evidence to OpenRouter after you click. Avoid sending secrets, private user data, or unredacted logs. The AI API key is held in the page and request memory only; do not expose this dashboard to a shared network. OpenRouter model IDs and pricing/availability can change; choose a model available to your account.
+
+## Privacy and safety
+
+- Dashboard binds to `127.0.0.1` by default. Do not use `--host 0.0.0.0` unless you add appropriate authentication and network controls; this prototype has no login system.
+- Do not run the dashboard itself as root. Some monitor inputs may require permissions; unavailable sources should be treated as reduced coverage, not proof of safety.
+- Local files such as `security_events.jsonl`, `process_log.jsonl`, and baseline snapshots can contain sensitive paths and process metadata. Keep them out of public repositories.
+- AI output can be incorrect or unsafe. It is never executed by KernelSense. Treat recommendations as investigation guidance and verify them independently.
+- No ML anomaly detector is included in this build; ML remains future scope as requested.
+
+## Project files
+
+- `dashboard.py` — local HTTP dashboard, UI, monitor supervision, and optional on-demand OpenRouter analysis.
+- `event_logger.py` — structured JSONL event writer shared by monitors.
+- `all-processes_monitoring.py` — process snapshots with basic command-line secret redaction.
+- `directory-monitoring.py` — watches selected system directories.
+- `kernel-monitoring.py` — polls high-priority kernel journal messages.
+- `privilege_escalation-detector.py` — watches selected configuration changes and readable audit records.
+- `kernel_modules_monitor.py` — module load/unload events.
+- `hardening_recommender.py` — checks selected sysctl settings and prints recommendations.
+
+This is a prototype, not a certified intrusion-detection product. Absence of alerts does not guarantee that a host is clean.

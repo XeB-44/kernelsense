@@ -1,50 +1,64 @@
 #!/usr/bin/env python3
-"""
-main.py - runs all KernelSense monitors in background
-Usage:  sudo python3 main.py
-Stop with Ctrl+C
-"""
+"""Run KernelSense monitors without the browser dashboard.
 
+Use this for headless monitoring only. Do not run this at the same time as
+`python3 dashboard.py`, because the dashboard starts its own monitor workers.
+"""
+from __future__ import annotations
+import os
+import signal
 import subprocess
 import sys
 import time
-import signal
-import os
+from pathlib import Path
 
-SCRIPTS = [
+BASE_DIR = Path(__file__).resolve().parent
+SCRIPTS = (
     "all-processes_monitoring.py",
     "directory-monitoring.py",
     "kernel-monitoring.py",
     "privilege_escalation-detector.py",
-]
+    "kernel_modules_monitor.py",
+    "hardening_recommender.py",
+)
+children: list[subprocess.Popen] = []
+stopping = False
 
-procs = []
-
-def stop_all(sig=None, frame=None):
-    print("\nStopping all monitors...")
-    for p in procs:
+def stop_all(*_args):
+    global stopping
+    stopping = True
+    for child in children:
+        if child.poll() is None:
+            child.terminate()
+    for child in children:
         try:
-            p.terminate()
-        except Exception:
-            pass
-    sys.exit(0)
+            child.wait(timeout=4)
+        except subprocess.TimeoutExpired:
+            child.kill()
 
-signal.signal(signal.SIGINT, stop_all)
-signal.signal(signal.SIGTERM, stop_all)
+def main() -> int:
+    signal.signal(signal.SIGINT, stop_all)
+    signal.signal(signal.SIGTERM, stop_all)
+    print("Starting KernelSense monitoring workers (no dashboard). Ctrl+C to stop.", flush=True)
+    for script in SCRIPTS:
+        path = BASE_DIR / script
+        if not path.is_file():
+            print(f"Skipping missing monitor: {script}", flush=True)
+            continue
+        try:
+            child = subprocess.Popen([sys.executable, "-u", str(path)], cwd=str(BASE_DIR))
+            children.append(child)
+            print(f"Started {script} (PID {child.pid})", flush=True)
+        except OSError as exc:
+            print(f"Could not start {script}: {exc}", flush=True)
+    if not children:
+        return 1
+    try:
+        while not stopping and any(p.poll() is None for p in children):
+            time.sleep(1)
+    finally:
+        stop_all()
+    return 0
 
-print("Starting KernelSense (all monitors)...")
-
-for script in SCRIPTS:
-    if not os.path.exists(script):
-        print(f"Missing: {script}")
-        continue
-    p = subprocess.Popen([sys.executable, script])
-    procs.append(p)
-    print(f"  started {script} (pid {p.pid})")
-
-print("All running. Press Ctrl+C to stop.")
-try:
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    stop_all()
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,2 +1,2 @@
-psutil
-watchdog
+psutil>=5.9.0
+watchdog>=4.0.0
